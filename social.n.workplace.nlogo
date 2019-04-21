@@ -2,7 +2,8 @@ extensions [array]
 breed [companies company]
 breed [peoples people]
 
-globals[
+globals
+[
   fire-rate
   social-nets
   time
@@ -10,23 +11,21 @@ globals[
   total-workers
   company-workers
 ]
-
-peoples-own [
+peoples-own
+[
   ; Boolean Attributes
   happy?
   works?
   manager?
   reccomended?
   move?
-  ; Numbers Attributes
-  similar-nearby   ; how many neighboring patches have a turtle with my color?
-  other-nearby     ; how many have a turtle of another color?
-  total-nearby     ; sum of previous two variables
+  bored?
+
   work-place       ; indicates company's ID
   social-net       ; indicates social-network's ID
 ]
-
-companies-own [
+companies-own
+[
   id
 ]
 
@@ -36,6 +35,7 @@ to setup
   let pointer 0
   set total-workers 0
   set company-workers array:from-list n-values company-spawn [0]
+  set social-nets array:from-list n-values 10 [0]
   set time 0
   set day 1
   let num 0
@@ -47,8 +47,10 @@ to setup
       sprout-peoples 1 [
         set color one-of [105 27 45 66 77]
         set size 1
-        set move? True
+        set move? False
         set shape "person"
+        set social-net random social-nets-num
+        array:set social-nets social-net array:item social-nets social-net + 1
         ifelse pointer < company-spawn [set work-place pointer + 1] [set work-place 0]
         if pointer < company-spawn [array:set company-workers pointer array:item company-workers pointer + 1]
         set works? work-place != 0
@@ -91,10 +93,8 @@ to go
       ;    show("back from work")
     ]
   ]
-;  ??????????????
-;  if all? peoples [ happy? ] [ stop ]
+
   if day > observe-days [ stop ]
-  move-unhappy-turtles
   update-turtles
   set time time + 1
   set total-workers count peoples with [works?]
@@ -122,24 +122,33 @@ to spawn-companies
   ]
 end
 
-to move-unhappy-turtles
-  ask peoples with [ (not happy?) and (move?)]
+to move-bored-peoples
+  ask peoples with [(move?)]
     [find-new-spot]
 end
 to find-new-spot
   rt random-float 360
   fd random-float 10
-  if (any? other peoples-here) or (any? companies-on neighbors) or (any? companies in-radius 6) or (any? companies-here) [find-new-spot]; keep going until we find an unoccupied patch
+  let new-net 0
+  if (any? companies-on neighbors) or (any? companies in-radius 6) or (any? companies-here) [find-new-spot]; keep going until we find an unoccupied patch
+  ifelse (any? other peoples-here)[
+    ask peoples-here [ ; socialize with other peoples here
+      set new-net social-net
+    ]
+    set social-net new-net
+    set move? False
+  ][]
   move-to patch-here  ; move to center of patch
 end
 to update-turtles
-  ask peoples [
-    ; in next two lines, we use "neighbors" to test the eight patches
-    ; surrounding the current patch
-    set similar-nearby count (peoples-on neighbors)  with [ color = [ color ] of myself ]
-    set other-nearby count (peoples-on neighbors) with [ color != [ color ] of myself ]
-    set total-nearby similar-nearby + other-nearby
-    set happy? similar-nearby >= (h-level * total-nearby / 100)
+  if (time mod 24 = 0)[
+    ask peoples[
+      set bored? random 100 > 100 - bored-rate-%
+      ifelse bored?
+          [set move? True]
+          [set move? False]
+    ]
+    move-bored-peoples
   ]
   ask companies[
     let y id
@@ -179,18 +188,18 @@ to goto-work
     set move? False
   ]
 end
-
 to backfrom-work
   ask peoples with [works?][
     st
     set move? True
     setxy 20 -10 ; supposed to be output gate for peoples back from work
+    find-new-spot
   ]
 end
 
 to fire-peoples
   ask peoples with [works?][
-    let fire? random 100 > firing-rate-%
+    let fire? random 100 > 100 - firing-rate-%
     if fire? [
       let cx work-place - 1
       array:set company-workers cx array:item company-workers cx - 1
@@ -199,18 +208,15 @@ to fire-peoples
     ]
   ]
 end
-
-
-; social network section
 @#$#@#$#@
 GRAPHICS-WINDOW
-245
-38
-1092
-473
+461
+10
+1125
+352
 -1
 -1
-12.91
+10.1
 1
 10
 1
@@ -231,10 +237,10 @@ ticks
 60.0
 
 BUTTON
-31
-65
-113
-98
+9
+10
+107
+43
 NIL
 setup
 NIL
@@ -248,10 +254,10 @@ NIL
 1
 
 BUTTON
-128
-65
-205
-98
+106
+10
+201
+43
 NIL
 go
 T
@@ -265,25 +271,25 @@ NIL
 1
 
 SLIDER
-32
-103
-206
-136
+10
+48
+203
+81
 population
 population
 0
 1000
-535.0
+534.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-33
-141
-207
-174
+11
+86
+202
+119
 h-level
 h-level
 0
@@ -295,10 +301,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-33
-181
-207
-214
+11
+126
+202
+159
 company-spawn
 company-spawn
 0
@@ -310,10 +316,10 @@ NIL
 HORIZONTAL
 
 MONITOR
-1139
-62
-1258
-107
+1130
+10
+1213
+55
 Pengangguran
 count peoples - total-workers
 17
@@ -321,10 +327,10 @@ count peoples - total-workers
 11
 
 MONITOR
-1138
-109
-1221
-154
+1131
+57
+1192
+102
 Populasi
 count peoples
 17
@@ -332,10 +338,10 @@ count peoples
 11
 
 INPUTBOX
-1135
-158
-1207
-218
+1132
+107
+1205
+167
 workers-limit
 30.0
 1
@@ -343,10 +349,10 @@ workers-limit
 Number
 
 MONITOR
-33
-220
-90
-265
+11
+165
+68
+210
 Days
 day
 17
@@ -355,42 +361,24 @@ day
 
 SLIDER
 1133
-224
+169
 1267
-257
+202
 firing-rate-%
 firing-rate-%
 0
 100
-50.0
+34.0
 1
 1
 NIL
 HORIZONTAL
 
-PLOT
-26
-271
-226
-421
-Happy peoples
-days
-num-happy
-0.0
-1.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot count peoples with [happy?]"
-
 INPUTBOX
-1133
-301
-1214
-361
+1132
+282
+1213
+342
 observe-days
 365.0
 1
@@ -399,18 +387,252 @@ Number
 
 SLIDER
 1133
-262
+207
 1267
-295
+240
 hiring-rate-%
 hiring-rate-%
 0
 100
-50.0
+62.0
 1
 1
 NIL
 HORIZONTAL
+
+SLIDER
+73
+165
+201
+198
+social-nets-num
+social-nets-num
+0
+10
+10.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+1132
+247
+1267
+280
+bored-rate-%
+bored-rate-%
+0
+100
+100.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+207
+13
+357
+31
+Social Net : 1
+11
+0.0
+1
+
+MONITOR
+206
+30
+256
+75
+Race-1
+count peoples with [(color = 105) and (social-net = 1)]
+17
+1
+11
+
+MONITOR
+257
+30
+307
+75
+Race-2
+count peoples with [(color = 27) and (social-net = 1)]
+17
+1
+11
+
+MONITOR
+308
+30
+358
+75
+Race-3
+count peoples with [(color = 45) and (social-net = 1)]
+17
+1
+11
+
+MONITOR
+358
+30
+408
+75
+Race-4
+count peoples with [(color = 66) and (social-net = 1)]
+17
+1
+11
+
+MONITOR
+407
+30
+457
+75
+Race-5
+count peoples with [(color = 77) and (social-net = 1)]
+17
+1
+11
+
+PLOT
+10
+216
+201
+362
+Social Networks
+Days
+Members
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"Social-1" 1.0 0 -7500403 true "" "plot count peoples with [social-net = 1]"
+"Social-2" 1.0 0 -2674135 true "" "plot count peoples with [social-net = 2]"
+"Social-3" 1.0 0 -955883 true "" "plot count peoples with [social-net = 3]"
+"Social-4" 1.0 0 -6459832 true "" "plot count peoples with [social-net = 4]"
+"Social-5" 1.0 0 -1184463 true "" "plot count peoples with [social-net = 5]"
+"Social-6" 1.0 0 -10899396 true "" "plot count peoples with [social-net = 6]"
+"Social-7" 1.0 0 -13840069 true "" "plot count peoples with [social-net = 7]"
+"Social-8" 1.0 0 -14835848 true "" "plot count peoples with [social-net = 8]"
+"Social-9" 1.0 0 -11221820 true "" "plot count peoples with [social-net = 9]"
+"Social-10" 1.0 0 -13791810 true "" "plot count peoples with [social-net = 10]"
+
+TEXTBOX
+208
+80
+358
+98
+Social Net : 2
+11
+0.0
+1
+
+TEXTBOX
+206
+145
+356
+163
+Social Net : 3
+11
+0.0
+1
+
+TEXTBOX
+311
+379
+461
+397
+Social Net : 4
+11
+0.0
+1
+
+TEXTBOX
+331
+425
+481
+443
+Social Net : 5
+11
+0.0
+1
+
+TEXTBOX
+292
+366
+442
+384
+Social Net : 6
+11
+0.0
+1
+
+TEXTBOX
+276
+342
+426
+360
+Social Net : 7
+11
+0.0
+1
+
+TEXTBOX
+253
+357
+403
+375
+Social Net : 8
+11
+0.0
+1
+
+TEXTBOX
+256
+448
+406
+466
+Social Net : 9
+11
+0.0
+1
+
+TEXTBOX
+324
+492
+474
+510
+Social Net : 10
+11
+0.0
+1
+
+MONITOR
+205
+96
+255
+141
+Race-1
+count peoples with [(color = 105) and (social-net = 2)]
+17
+1
+11
+
+MONITOR
+204
+160
+255
+205
+Race-1
+count peoples with [(color = 105) and (social-net = 3)]
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
