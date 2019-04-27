@@ -1,7 +1,7 @@
 extensions [array]
 breed [companies company]
 breed [peoples people]
-; variables
+
 globals
 [
   temp-pointer
@@ -50,7 +50,7 @@ companies-own
   id
   work-social-nets
 ]
-; general procedures
+
 to setup
   let lead? False
   set temp-pointer 0
@@ -157,7 +157,7 @@ to spawn-people
      ]
   ]
 end
-; turtles's activities related procedures
+; turtles's activities related proc
 to move-bored-peoples
   ask peoples with [(move?)]
     [find-new-spot]
